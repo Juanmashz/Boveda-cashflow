@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<script>
+  // Guardia de seguridad frontend
+  if (!localStorage.getItem('jwt_token')) {
+      window.location.href = '/';
+  }
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CashFlow · Gestión de Base de Datos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy: #0F1C2E; --navy-deep: #091220; --brass: #C9A227; --brass-soft: #E4C766;
+    --paper: #F4EFE1; --paper-dim: #E7E0CC; --slate: #8B98A9; --ink: #1D2430;
+    --ok: #3FA796; --err: #C1443C; --edit: #3C7BC1; --edit-hover: #2A5A90;
+  }
+  *{ box-sizing: border-box; }
+  html, body{ margin: 0; min-height: 100%; }
+  body{
+    background: radial-gradient(1200px 600px at 50% -10%, rgba(201,162,39,0.10), transparent 60%), var(--navy);
+    color: var(--paper); font-family: 'IBM Plex Mono', monospace; display: flex;
+    justify-content: center; padding: 40px 20px 80px; line-height: 1.5;
+  }
+  
+  .wrap{ width: 100%; max-width: 850px; }
+  
+  .top-nav { display: flex; gap: 24px; margin-bottom: 36px; border-bottom: 1px solid rgba(201,162,39,0.2); padding-bottom: 12px; }
+  .nav-item { color: var(--slate); text-decoration: none; font-size: 14px; font-weight: 500; transition: color .2s ease; letter-spacing: 0.02em; }
+  .nav-item:hover { color: var(--paper); }
+  .nav-item.active { color: var(--brass-soft); font-weight: 600; border-bottom: 2px solid var(--brass-soft); padding-bottom: 13px; margin-bottom: -13px; }
+  
+  .eyebrow{ font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--brass-soft); margin: 0 0 10px; display: flex; align-items: center; gap: 10px; }
+  .eyebrow::before{ content: ""; width: 22px; height: 1px; background: var(--brass-soft); display: inline-block; }
+  h1{ font-family: 'Fraunces', serif; font-weight: 600; font-size: clamp(32px, 5vw, 44px); margin: 0 0 6px; letter-spacing: -0.01em; color: var(--paper); }
+  .subtitle{ color: var(--slate); font-size: 14px; margin: 0 0 40px; max-width: 50ch; }
+  
+  .ticket{ background: var(--paper); color: var(--ink); border-radius: 8px; border-top: 3px solid var(--brass); padding: 32px 36px; box-shadow: 0 30px 60px -20px rgba(0,0,0,0.55); }
+  .ticket-head{ display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px dashed rgba(29,36,48,0.25); padding-bottom: 16px; margin-bottom: 24px; }
+  .ticket-head .label{ font-family: 'Fraunces', serif; font-weight: 600; font-size: 18px; }
+  .ticket-head .stamp{ font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ok); border: 1px solid var(--ok); border-radius: 20px; padding: 4px 10px; }
+  .ticket-head .stamp.offline{ color: var(--err); border-color: var(--err); }
+  
+  .table-selector { width: 100%; background: var(--paper-dim); border: 1px solid rgba(29,36,48,0.2); border-radius: 6px; padding: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 24px; outline: none; cursor: pointer; }
+  .table-selector:focus { border-color: var(--brass); }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .slot-input { width: 100%; background: transparent; border: 2px dashed rgba(29,36,48,0.3); border-radius: 6px; padding: 12px 14px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--ink); transition: .15s ease; outline: none; }
+  .slot-input:focus { border-color: var(--brass); border-style: solid; background: rgba(201,162,39,0.08); }
+  .slot-input:disabled { background: rgba(29,36,48,0.05); color: var(--slate); font-weight: bold; cursor: not-allowed; border-style: solid; }
+  .slot-input::placeholder { color: var(--slate); font-weight: normal; }
+  .full-width { grid-column: span 2; }
+
+  button.submit{ width: 100%; margin-top: 18px; background: var(--navy); color: var(--paper); border: none; border-radius: 4px; padding: 14px 18px; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; transition: .15s ease; }
+  button.submit:hover:not(:disabled){ background: #16283F; }
+  button.submit.edit-mode { background: var(--edit); }
+  button.submit.edit-mode:hover:not(:disabled) { background: var(--edit-hover); }
+  
+  .status{ margin-top: 14px; font-size: 12.5px; min-height: 18px; text-align: center; }
+  .status.ok{ color: var(--ok); } .status.err{ color: var(--err); } .status.pending{ color: var(--slate); }
+
+  .ledger{ margin-top: 24px; padding-top: 24px; border-top: 1px dashed rgba(29,36,48,0.25); }
+  .ledger-head{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .ledger-head .label{ font-family: 'Fraunces', serif; font-weight: 600; font-size: 16px; }
+  .refresh{ background: none; border: 1px solid rgba(29,36,48,0.25); color: var(--ink); border-radius: 20px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 5px 12px; cursor: pointer; }
+  .refresh:hover{ border-color: var(--brass); color: #8a6d13; }
+
+  .filter-bar { display: flex; gap: 10px; margin-bottom: 16px; background: rgba(29,36,48,0.03); padding: 12px; border-radius: 6px; border: 1px solid rgba(29,36,48,0.1); }
+  .filter-select, .filter-input { background: var(--paper); border: 1px solid rgba(29,36,48,0.2); border-radius: 4px; padding: 8px 12px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--ink); outline: none; }
+  .filter-select:focus, .filter-input:focus { border-color: var(--brass); }
+  .filter-input { flex: 1; }
+
+  .table-container { overflow-x: auto; border: 1px solid rgba(29,36,48,0.15); border-radius: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; text-align: left; white-space: nowrap; }
+  th { background: rgba(29,36,48,0.04); padding: 12px 16px; font-weight: 600; color: var(--ink); border-bottom: 1px solid rgba(29,36,48,0.15); }
+  td { padding: 12px 16px; border-bottom: 1px solid rgba(29,36,48,0.08); color: rgba(29,36,48,0.8); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(201,162,39,0.04); }
+  
+  .pk-link { color: var(--edit); text-decoration: underline; cursor: pointer; font-weight: 600; }
+  .pk-link:hover { color: var(--edit-hover); }
+  
+  .action-del { color: var(--err); cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; text-transform: uppercase; background: none; border: none; padding: 0; }
+  .action-del:hover { text-decoration: underline; }
+
+  .empty, .loading{ color: var(--slate); font-size: 12.5px; padding: 10px 0; text-align: center; }
+  .foot-note{ margin-top: 26px; color: var(--slate); font-size: 11px; text-align: center; letter-spacing: 0.02em; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <nav class="top-nav">
+    <a href="/boveda" class="nav-item">🗄️ Bóveda de Archivos (S3)</a>
+    <a href="#" class="nav-item active">🗃️ Base de Datos (DynamoDB)</a>
+  </nav>
+
+  <p class="eyebrow">ec2-instancia-dynamodb</p>
+  <h1>Gestión Universal</h1>
+  <p class="subtitle">CRUD completo. Cambia de tabla, agrega nuevos registros, edita los existentes o elimínalos en tiempo real.</p>
+
+  <div class="ticket">
+    <select id="tablaSelector" class="table-selector">
+      <option value="productos">Tabla: Productos</option>
+      <option value="clientes">Tabla: Clientes</option>
+      <option value="ventas">Tabla: Ventas</option>
+      <option value="proveedores">Tabla: Proveedores</option>
+      <option value="compras">Tabla: Compras</option>
+      <option value="inventario">Tabla: Inventario</option>
+      <option value="sucursales">Tabla: Sucursales</option>
+    </select>
+
+    <div class="ticket-head">
+      <span class="label" id="formTitulo">Ingreso de Registro</span>
+      <span class="stamp" id="connStamp">conectando…</span>
+    </div>
+
+    <form id="formDinamico">
+      <div class="form-grid" id="contenedorCampos"></div>
+      <button type="submit" class="submit" id="btnSubir">Guardar en Base de Datos</button>
+      <button type="button" class="submit" id="btnCancelarEdit" style="display:none; background: var(--slate); margin-top: 8px;">Cancelar Edición</button>
+    </form>
+    
+    <div class="status" id="status"></div>
+
+    <div class="ledger">
+      <div class="ledger-head">
+        <span class="label" id="listTitulo">Registro de Productos</span>
+        <button class="refresh" id="btnRefrescar" type="button">↻ actualizar</button>
+      </div>
+
+      <div class="filter-bar">
+        <select id="filtroColumna" class="filter-select"></select>
+        <input type="text" id="filtroValor" class="filter-input" placeholder="Escribe para filtrar resultados...">
+      </div>
+
+      <div id="listado">
+        <p class="loading">Cargando base de datos…</p>
+      </div>
+    </div>
+  </div>
+  <p class="foot-note">CashFlow · Conexión segura Boto3 / IAM Roles de AWS</p>
+</div>
+
+<script>
+  const esquemas = {
+    productos: [
+      { id: 'productoId', label: 'ID Producto (Automático)', type: 'text', pk: true },
+      { id: 'nombre', label: 'Nombre', type: 'text', full: true },
+      { id: 'categoria', label: 'Categoría', type: 'text' },
+      { id: 'precio', label: 'Precio ($)', type: 'number' }
+    ],
+    clientes: [
+      { id: 'clienteId', label: 'ID Cliente (Automático)', type: 'text', pk: true },
+      { id: 'nombre', label: 'Nombre', type: 'text', full: true },
+      { id: 'correo', label: 'Correo', type: 'text', full: true },
+      { id: 'ciudad', label: 'Ciudad', type: 'text' }
+    ],
+    ventas: [
+      { id: 'ventaId', label: 'ID Venta (Automático)', type: 'text', pk: true },
+      { id: 'fecha', label: 'Fecha (YYYY-MM-DD)', type: 'text' },
+      { id: 'clienteId', label: 'ID Cliente', type: 'text' },
+      { id: 'productoId', label: 'ID Producto', type: 'text' },
+      { id: 'cantidad', label: 'Cantidad', type: 'number' }
+    ],
+    proveedores: [
+      { id: 'proveedorId', label: 'ID Proveedor (Automático)', type: 'text', pk: true },
+      { id: 'nombre', label: 'Nombre', type: 'text', full: true },
+      { id: 'correo', label: 'Correo', type: 'text' },
+      { id: 'telefono', label: 'Teléfono', type: 'text' },
+      { id: 'ciudad', label: 'Ciudad', type: 'text' }
+    ],
+    compras: [
+      { id: 'compraId', label: 'ID Compra (Automático)', type: 'text', pk: true },
+      { id: 'fecha', label: 'Fecha (YYYY-MM-DD)', type: 'text' },
+      { id: 'proveedorId', label: 'ID Proveedor', type: 'text' },
+      { id: 'productoId', label: 'ID Producto', type: 'text' },
+      { id: 'cantidad', label: 'Cantidad', type: 'number' },
+      { id: 'total', label: 'Total', type: 'number' }
+    ],
+    inventario: [
+      { id: 'inventarioId', label: 'ID Inventario (Automático)', type: 'text', pk: true },
+      { id: 'sucursalId', label: 'ID Sucursal', type: 'text' },
+      { id: 'productoId', label: 'ID Producto', type: 'text' },
+      { id: 'cantidad', label: 'Cantidad', type: 'number' },
+      { id: 'stockMinimo', label: 'Stock Mínimo', type: 'number' }
+    ],
+    sucursales: [
+      { id: 'sucursalId', label: 'ID Sucursal (Automático)', type: 'text', pk: true },
+      { id: 'nombre', label: 'Nombre', type: 'text', full: true },
+      { id: 'telefono', label: 'Teléfono', type: 'text' },
+      { id: 'ciudad', label: 'Ciudad', type: 'text' },
+      { id: 'direccion', label: 'Dirección', type: 'text', full: true }
+    ]
+  };
+
+  // Prefijos automáticos para las llaves primarias
+  const prefijosPK = {
+    productos: 'P', clientes: 'C', ventas: 'V', proveedores: 'PROV-', compras: 'COM-', inventario: 'INV-', sucursales: 'SUC-'
+  };
+
+  let tablaActual = 'productos';
+  let datosCacheados = [];
+
+  const selector = document.getElementById('tablaSelector');
+  const contCampos = document.getElementById('contenedorCampos');
+  const form = document.getElementById('formDinamico');
+  const listado = document.getElementById('listado');
+  const statusEl = document.getElementById('status');
+  const btnSubir = document.getElementById('btnSubir');
+  const btnCancelar = document.getElementById('btnCancelarEdit');
+  const connStamp = document.getElementById('connStamp');
+  const filtroColumna = document.getElementById('filtroColumna');
+  const filtroValor = document.getElementById('filtroValor');
+
+  function setStatus(msg, kind){
+    statusEl.textContent = msg; statusEl.className = "status " + kind;
+  }
+
+  function inicializarFiltros() {
+    const esquema = esquemas[tablaActual];
+    filtroColumna.innerHTML = esquema.map(c => `<option value="${c.id}">Filtrar por: ${c.label}</option>`).join('');
+    filtroValor.value = '';
+  }
+
+  filtroValor.addEventListener('input', aplicarFiltro);
+  filtroColumna.addEventListener('change', aplicarFiltro);
+
+  function aplicarFiltro() {
+    const col = filtroColumna.value;
+    const val = filtroValor.value.toLowerCase();
+    
+    const filtrados = datosCacheados.filter(item => {
+      if (!val) return true;
+      const valorItem = item[col] !== undefined ? String(item[col]).toLowerCase() : '';
+      return valorItem.includes(val);
+    });
+    
+    renderizarTabla(filtrados);
+  }
+
+  // ALGORITMO INTELIGENTE: Calcula el próximo ID disponible rellenando huecos
+  function calcularProximoID() {
+    const esquemaActual = esquemas[tablaActual];
+    const pk_name = esquemaActual.find(c => c.pk).id;
+    const prefijo = prefijosPK[tablaActual];
+
+    if (!datosCacheados || datosCacheados.length === 0) {
+      return prefijo + "001";
+    }
+
+    let numerosObtenidos = datosCacheados.map(item => {
+      const valorStr = item[pk_name] || '';
+      const soloNumeros = valorStr.replace(/\D/g, ''); // Remueve letras y guiones
+      return parseInt(soloNumeros, 10) || 0;
+    });
+
+    numerosObtenidos.sort((a, b) => a - b);
+
+    let proximoNumero = 1;
+    for (let i = 0; i < numerosObtenidos.length; i++) {
+      if (numerosObtenidos[i] === proximoNumero) {
+        proximoNumero++;
+      }
+    }
+    
+    // Rellena con ceros a la izquierda (ej: 004, 012)
+    return prefijo + String(proximoNumero).padStart(3, '0');
+  }
+
+  function renderizarFormulario() {
+    const esquema = esquemas[tablaActual];
+    contCampos.innerHTML = esquema.map(campo => `
+      <input type="${campo.type}" id="${campo.id}" 
+             class="slot-input ${campo.full ? 'full-width' : ''}" 
+             placeholder="${campo.label}" ${campo.pk ? 'disabled' : 'required'}>
+    `).join('');
+    // Al inicio el formulario queda en blanco hasta que descargue los datos y calcule el ID
+  }
+
+  selector.addEventListener('change', (e) => {
+    tablaActual = e.target.value;
+    document.getElementById('formTitulo').innerText = `Ingreso de ${tablaActual}`;
+    document.getElementById('listTitulo').innerText = `Registro de ${tablaActual}`;
+    renderizarFormulario();
+    inicializarFiltros();
+    cargarListado();
+  });
+
+  async function cargarListado(){
+    listado.innerHTML = '<p class="loading">Sincronizando con DynamoDB…</p>';
+    try{
+      const res = await fetch(`/api/${tablaActual}`);
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const datos = await res.json();
+      datosCacheados = datos.items || [];
+      connStamp.textContent = "dynamodb online"; connStamp.classList.remove("offline");
+      
+      aplicarFiltro(); 
+      cancelarEdicion(); // Resetea el form y aplica el ID automático calculado con los nuevos datos
+
+    } catch(err) {
+      connStamp.textContent = "sin conexión"; connStamp.classList.add("offline");
+      listado.innerHTML = '<p class="empty">No se pudo cargar la BD (' + err.message + ').</p>';
+    }
+  }
+
+  function renderizarTabla(datos) {
+    if (!datos.length){
+      listado.innerHTML = '<p class="empty">No hay registros que coincidan con la búsqueda.</p>'; 
+      return;
+    }
+    const esquemaActual = esquemas[tablaActual];
+    const pk_name = esquemaActual.find(c => c.pk).id;
+
+    let html = '<div class="table-container"><table><thead><tr>';
+    esquemaActual.forEach(c => { html += `<th>${c.id}</th>`; });
+    html += '<th>acciones</th></tr></thead><tbody>';
+
+    datos.forEach(item => {
+      html += '<tr>';
+      esquemaActual.forEach(c => {
+        const val = item[c.id] !== undefined ? item[c.id] : '—';
+        if (c.pk) {
+          html += `<td><a class="pk-link" onclick="editarItem('${val}')">${val}</a></td>`;
+        } else {
+          html += `<td>${val}</td>`;
+        }
+      });
+      html += `<td><button type="button" class="action-del" onclick="eliminarItem('${item[pk_name]}')">Borrar</button></td></tr>`;
+    });
+    html += '</tbody></table></div>';
+    listado.innerHTML = html;
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    btnSubir.disabled = true; setStatus("Guardando…", "pending");
+
+    const payload = {};
+    esquemas[tablaActual].forEach(campo => {
+      const val = document.getElementById(campo.id).value;
+      if(val) payload[campo.id] = campo.type === 'number' ? Number(val) : val;
+    });
+
+    try {
+      const res = await fetch(`/api/${tablaActual}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error("Error al guardar");
+      setStatus("✓ Registro guardado", "ok");
+      cargarListado(); // Al cargar de nuevo, la tabla recalculará el siguiente ID solo
+    } catch(err) { setStatus("✕ " + err.message, "err"); } 
+    finally { btnSubir.disabled = false; setTimeout(() => setStatus("", ""), 4000); }
+  });
+
+  window.editarItem = (pk_val) => {
+    const pk_name = esquemas[tablaActual].find(c => c.pk).id;
+    const item = datosCacheados.find(i => i[pk_name] == pk_val);
+    if(!item) return;
+
+    esquemas[tablaActual].forEach(campo => {
+      if(item[campo.id]) document.getElementById(campo.id).value = item[campo.id];
+      // El PK se mantiene bloqueado durante la edición
+      if(campo.pk) document.getElementById(campo.id).disabled = true;
+    });
+    
+    btnSubir.textContent = "ACTUALIZAR REGISTRO";
+    btnSubir.classList.add("edit-mode");
+    btnCancelar.style.display = "block";
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  function cancelarEdicion() {
+    form.reset();
+    btnSubir.textContent = "Guardar en Base de Datos";
+    btnSubir.classList.remove("edit-mode");
+    btnCancelar.style.display = "none";
+    
+    const pk_field = esquemas[tablaActual].find(c => c.pk);
+    if(pk_field) {
+      const el = document.getElementById(pk_field.id);
+      if(el) {
+        el.disabled = true; // Se mantiene bloqueado para proteger la estructura
+        el.value = calcularProximoID(); // Asigna el nuevo ID rellenando huecos
+      }
+    }
+  }
+  btnCancelar.addEventListener('click', cancelarEdicion);
+
+  window.eliminarItem = async (pk_val) => {
+    if(!confirm(`¿Eliminar definitivamente el registro ${pk_val}?`)) return;
+    setStatus(`Eliminando ${pk_val}…`, "pending");
+    const pk_name = esquemas[tablaActual].find(c => c.pk).id;
+    
+    try {
+      const res = await fetch(`/api/${tablaActual}/${pk_name}/${pk_val}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error("Error al eliminar");
+      setStatus("✓ Registro eliminado", "ok");
+      cargarListado();
+    } catch(err) { setStatus("✕ " + err.message, "err"); } 
+    finally { setTimeout(() => setStatus("", ""), 4000); }
+  };
+
+  btnRefrescar.addEventListener("click", cargarListado);
+  renderizarFormulario();
+  inicializarFiltros();
+  cargarListado();
+</script>
+</body>
+</html>

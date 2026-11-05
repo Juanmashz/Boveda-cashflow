@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>CashFlow · Iniciar Sesión</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{ --navy: #0F1C2E; --brass-soft: #E4C766; --paper: #F4EFE1; --slate: #8B98A9; --ink: #1D2430; }
+  body{ background: var(--navy); color: var(--paper); font-family: 'IBM Plex Mono', monospace; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+  .login-card { background: var(--paper); color: var(--ink); padding: 40px; border-radius: 8px; text-align: center; max-width: 400px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); border-top: 3px solid #C9A227; }
+  h1 { font-family: 'Fraunces', serif; font-size: 28px; margin-bottom: 10px; }
+  p { color: var(--slate); font-size: 14px; margin-bottom: 30px; }
+  .btn-login { display: inline-block; padding: 12px 24px; background: var(--navy); color: var(--paper); text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; transition: 0.2s; }
+  .btn-login:hover { background: #16283F; }
+  #loading { display: none; color: var(--navy); font-weight: bold; margin-top: 20px; }
+</style>
+</head>
+<body>
+
+<div class="login-card">
+  <h1>CashFlow</h1>
+  <p>Inicia sesión para acceder al panel de control de bases de datos y archivos seguros.</p>
+  <a id="btnLogin" href="https://us-east-1y2clk69cj.auth.us-east-1.amazoncognito.com/login?client_id=5ff5r3ghr7q35m3uip09ufnipi&response_type=code&scope=email+openid&redirect_uri=https://d13b1f3pmetoxp.cloudfront.net/" class="btn-login">Iniciar Sesión</a>
+  <div id="loading">Autenticando...</div>
+</div>
+
+<script>
+  const clientId = '5ff5r3ghr7q35m3uip09ufnipi';
+  const redirectUri = 'https://d13b1f3pmetoxp.cloudfront.net/';
+  const cognitoDomain = 'https://us-east-1y2clk69cj.auth.us-east-1.amazoncognito.com';
+
+  // Si ya tiene token, saltar directo al sistema
+  if (localStorage.getItem('jwt_token')) {
+      window.location.href = '/basedatos';
+  }
+
+  // Intercambiar código por token al regresar de Cognito
+  const urlParams = new URLSearchParams(window.location.search);
+  const authCode = urlParams.get('code');
+
+  if (authCode) {
+      document.getElementById('btnLogin').style.display = 'none';
+      document.getElementById('loading').style.display = 'block';
+
+      fetch(`${cognitoDomain}/oauth2/token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+              grant_type: 'authorization_code',
+              client_id: clientId,
+              code: authCode,
+              redirect_uri: redirectUri
+          })
+      })
+      .then(res => res.json())
+      .then(data => {
+          if (data.id_token) {
+              localStorage.setItem('jwt_token', data.id_token);
+              window.location.href = '/basedatos';
+          }
+      })
+      .catch(err => {
+          console.error("Error obteniendo token:", err);
+          document.getElementById('loading').textContent = 'Error de conexión';
+      });
+  }
+</script>
+</body>
+</html>

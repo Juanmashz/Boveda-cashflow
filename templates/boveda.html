@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<script>
+  // Guardia de seguridad frontend
+  if (!localStorage.getItem('jwt_token')) {
+      window.location.href = '/';
+  }
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CashFlow · Bóveda de archivos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{ --navy: #0F1C2E; --navy-deep: #091220; --brass: #C9A227; --brass-soft: #E4C766; --paper: #F4EFE1; --paper-dim: #E7E0CC; --slate: #8B98A9; --ink: #1D2430; --ok: #3FA796; --err: #C1443C; }
+  *{ box-sizing: border-box; } html, body{ margin: 0; min-height: 100%; }
+  body{ background: radial-gradient(1200px 600px at 50% -10%, rgba(201,162,39,0.10), transparent 60%), var(--navy); color: var(--paper); font-family: 'IBM Plex Mono', monospace; display: flex; justify-content: center; padding: 40px 20px 80px; line-height: 1.5; }
+  .wrap{ width: 100%; max-width: 640px; }
+  
+  /* --- Navegación Superior Interna --- */
+  .top-nav { display: flex; gap: 24px; margin-bottom: 36px; border-bottom: 1px solid rgba(201,162,39,0.2); padding-bottom: 12px; }
+  .nav-item { color: var(--slate); text-decoration: none; font-size: 14px; font-weight: 500; transition: color .2s ease; letter-spacing: 0.02em; }
+  .nav-item:hover { color: var(--paper); }
+  .nav-item.active { color: var(--brass-soft); font-weight: 600; border-bottom: 2px solid var(--brass-soft); padding-bottom: 13px; margin-bottom: -13px; }
+
+  .eyebrow{ font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--brass-soft); margin: 0 0 10px; display: flex; align-items: center; gap: 10px; }
+  .eyebrow::before{ content: ""; width: 22px; height: 1px; background: var(--brass-soft); display: inline-block; }
+  h1{ font-family: 'Fraunces', serif; font-weight: 600; font-size: clamp(32px, 5vw, 44px); margin: 0 0 6px; letter-spacing: -0.01em; color: var(--paper); }
+  .subtitle{ color: var(--slate); font-size: 14px; margin: 0 0 20px; max-width: 46ch; }
+  
+  /* --- Botón de Autenticación --- */
+  .auth-bar { margin-bottom: 40px; }
+  .btn-login { display: inline-block; padding: 8px 16px; background: var(--brass-soft); color: var(--navy-deep); text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; transition: 0.2s; }
+  .btn-login:hover { background: var(--paper); }
+  .user-badge { display: none; padding: 8px 16px; background: rgba(63, 167, 150, 0.15); border: 1px solid var(--ok); color: var(--ok); border-radius: 4px; font-size: 13px; font-weight: 600; }
+  
+  .ticket{ position: relative; background: var(--paper); color: var(--ink); border-radius: 8px; border-top: 3px solid var(--brass); padding: 32px 36px; box-shadow: 0 30px 60px -20px rgba(0,0,0,0.55); }
+  .ticket-head{ display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px dashed rgba(29,36,48,0.25); padding-bottom: 16px; margin-bottom: 28px; }
+  .ticket-head .label{ font-family: 'Fraunces', serif; font-weight: 600; font-size: 18px; }
+  .ticket-head .stamp{ font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ok); border: 1px solid var(--ok); border-radius: 20px; padding: 4px 10px; }
+  .ticket-head .stamp.offline{ color: var(--err); border-color: var(--err); }
+  .slot{ display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; border: 2px dashed rgba(29,36,48,0.3); border-radius: 6px; padding: 26px 20px; text-align: center; cursor: pointer; transition: .15s ease; }
+  .slot:hover, .slot.dragover{ border-color: var(--brass); background: rgba(201,162,39,0.08); }
+  .slot input[type="file"]{ display: none; }
+  .slot-icon{ font-size: 22px; line-height: 1; }
+  .slot-text{ font-size: 13px; color: var(--ink); }
+  .slot-file{ font-size: 12px; color: var(--slate); word-break: break-all; }
+  .hint{ font-size: 11px; color: var(--slate); text-align: center; margin-top: 10px; }
+  button.submit{ width: 100%; margin-top: 18px; background: var(--navy); color: var(--paper); border: none; border-radius: 4px; padding: 14px 18px; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; transition: .15s ease; }
+  button.submit:hover:not(:disabled){ background: #16283F; } button.submit:disabled{ opacity: 0.5; cursor: not-allowed; }
+  .status{ margin-top: 14px; font-size: 12.5px; min-height: 18px; } .status.ok{ color: var(--ok); } .status.err{ color: var(--err); } .status.pending{ color: var(--slate); }
+  .ledger{ margin-top: 34px; padding-top: 24px; border-top: 1px dashed rgba(29,36,48,0.25); }
+  .ledger-head{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .ledger-head .label{ font-family: 'Fraunces', serif; font-weight: 600; font-size: 16px; }
+  .refresh{ background: none; border: 1px solid rgba(29,36,48,0.25); color: var(--ink); border-radius: 20px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 5px 12px; cursor: pointer; }
+  .refresh:hover{ border-color: var(--brass); color: #8a6d13; }
+  .row{ display: flex; align-items: baseline; gap: 8px; padding: 9px 0; font-size: 12.5px; border-bottom: 1px solid rgba(29,36,48,0.08); }
+  .row .name{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .dots{ flex: 1; border-bottom: 1px dotted rgba(29,36,48,0.35); transform: translateY(-4px); min-width: 12px; }
+  .row .meta{ color: var(--slate); white-space: nowrap; font-size: 11.5px; }
+  .row a.dl{ color: #8a6d13; text-decoration: none; font-size: 11px; text-transform: uppercase; border-bottom: 1px solid transparent; } .row a.dl:hover{ border-color: #8a6d13; }
+  .empty, .loading{ color: var(--slate); font-size: 12.5px; padding: 10px 0; }
+  .foot-note{ margin-top: 26px; color: var(--slate); font-size: 11px; text-align: center; letter-spacing: 0.02em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  
+  <nav class="top-nav">
+    <a href="/boveda" class="nav-item active">🗄 Bóveda de Archivos (S3)</a>
+    <a href="/" class="nav-item">🗃 Base de Datos (DynamoDB)</a>
+  </nav>
+
+  <p class="eyebrow">bucket-privado-jm</p>
+  <h1>Bóveda de archivos</h1>
+  <p class="subtitle">Sube documentos a tu bucket privado mediante una URL pre-firmada. El navegador nunca ve tus credenciales de AWS.</p>
+
+  <div class="auth-bar">
+    <a id="btnLogin" href="https://us-east-1y2clk69cj.auth.us-east-1.amazoncognito.com/login?client_id=5ff5r3ghr7q35m3uip09ufnipi&response_type=code&scope=email+openid&redirect_uri=https://d13b1f3pmetoxp.cloudfront.net/boveda" class="btn-login">🔒 Iniciar Sesión para Depositar</a>
+    <span id="userBadge" class="user-badge">✓ Sesión iniciada</span>
+  </div>
+
+  <div class="ticket">
+    <div class="ticket-head">
+      <span class="label">Comprobante de depósito</span>
+      <span class="stamp offline" id="connStamp">BLOQUEADO</span>
+    </div>
+    <label class="slot" id="dropzone" for="archivo">
+      <span class="slot-icon">🗄</span>
+      <span class="slot-text" id="slotText">Arrastra un archivo aquí, o haz clic para elegirlo</span>
+      <span class="slot-file" id="slotFile"></span>
+      <input type="file" id="archivo">
+    </label>
+    <p class="hint">Imágenes, PDF, Office, CSV o TXT · máximo 10 MB</p>
+    <button class="submit" id="btnSubir" disabled>Depositar archivo</button>
+    <div class="status" id="status"></div>
+    
+    <div class="ledger">
+      <div class="ledger-head">
+        <span class="label">Registro de archivos</span>
+        <button class="refresh" id="btnRefrescar">↻ actualizar</button>
+      </div>
+      <div id="listado">
+        <p class="loading">Esperando inicio de sesión...</p>
+      </div>
+    </div>
+  </div>
+  <p class="foot-note">CashFlow · Depósitos protegidos con URLs de un solo uso, válidas por 5 minutos</p>
+</div>
+
+<script>
+  // 1. Nuevas rutas de la API HTTP con Cognito
+  const API_GENERAR_URL = "https://xgw5f8zym5.execute-api.us-east-1.amazonaws.com/generarURL";
+  const API_LISTAR_URL  = "https://xgw5f8zym5.execute-api.us-east-1.amazonaws.com/listarArchivos";
+  
+  // Datos de Cognito
+  const clientId = '5ff5r3ghr7q35m3uip09ufnipi';
+  const redirectUri = 'https://d13b1f3pmetoxp.cloudfront.net/boveda';
+  const cognitoDomain = 'https://us-east-1y2clk69cj.auth.us-east-1.amazoncognito.com';
+
+  const EXTENSIONES_PERMITIDAS = ["jpg","jpeg","png","gif","webp","pdf","docx","xlsx","csv","txt","pptx","mp3","wav","m4a","mp4","mov","webm"];
+  const TAMANO_MAXIMO = 10 * 1024 * 1024;
+
+  const dropzone = document.getElementById("dropzone"), input = document.getElementById("archivo"), slotText = document.getElementById("slotText"), slotFile = document.getElementById("slotFile"), btnSubir = document.getElementById("btnSubir"), statusEl = document.getElementById("status"), listadoEl = document.getElementById("listado"), connStamp = document.getElementById("connStamp"), btnRefrescar = document.getElementById("btnRefrescar"), btnLogin = document.getElementById("btnLogin"), userBadge = document.getElementById("userBadge");
+  let archivoSeleccionado = null;
+
+  function setStatus(msg, kind){ statusEl.textContent = msg; statusEl.className = "status " + kind; }
+  function formatBytes(bytes){ if (!bytes) return "0 KB"; const kb = bytes / 1024; return kb < 1024 ? kb.toFixed(1) + " KB" : (kb / 1024).toFixed(1) + " MB"; }
+  function formatDate(iso){ return iso ? new Date(iso).toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute:"2-digit" }) : ""; }
+
+  // 2. Intercambio de código por Token JWT de Cognito
+  const urlParams = new URLSearchParams(window.location.search);
+  const authCode = urlParams.get('code');
+
+  if (authCode) {
+    fetch(`${cognitoDomain}/oauth2/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            grant_type: 'authorization_code',
+            client_id: clientId,
+            code: authCode,
+            redirect_uri: redirectUri
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.id_token) {
+            localStorage.setItem('jwt_token', data.id_token);
+            // Limpia la URL para quitar el código largo visible
+            window.history.replaceState({}, document.title, window.location.pathname);
+            actualizarUI();
+            cargarListado();
+        }
+    })
+    .catch(err => console.error("Error obteniendo token:", err));
+  }
+
+  function actualizarUI() {
+      if (localStorage.getItem('jwt_token')) {
+          btnLogin.style.display = 'none';
+          userBadge.style.display = 'inline-block';
+      }
+  }
+  actualizarUI();
+
+  input.addEventListener("change", () => {
+    if (input.files.length){ archivoSeleccionado = input.files[0]; slotText.textContent = "Archivo listo para depositar"; slotFile.textContent = archivoSeleccionado.name + " · " + formatBytes(archivoSeleccionado.size); btnSubir.disabled = false; setStatus("", ""); }
+  });
+
+  ["dragover", "dragleave", "drop"].forEach(evt => dropzone.addEventListener(evt, e => e.preventDefault()));
+  dropzone.addEventListener("dragover", () => dropzone.classList.add("dragover"));
+  dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+  dropzone.addEventListener("drop", (e) => { dropzone.classList.remove("dragover"); if (e.dataTransfer.files.length){ input.files = e.dataTransfer.files; input.dispatchEvent(new Event("change")); }});
+
+  async function subir(){
+    if (!archivoSeleccionado) return;
+    
+    // Validar token antes de enviar
+    const token = localStorage.getItem('jwt_token');
+    if (!token) return setStatus("✕ Acceso denegado. Inicia sesión primero.", "err");
+
+    const extension = archivoSeleccionado.name.split(".").pop().toLowerCase();
+    if (!EXTENSIONES_PERMITIDAS.includes(extension)) return setStatus("✕ Tipo de archivo no permitido", "err");
+    if (archivoSeleccionado.size > TAMANO_MAXIMO) return setStatus("✕ El archivo supera 10 MB", "err");
+
+    btnSubir.disabled = true; setStatus("Solicitando comprobante seguro…", "pending");
+    try{
+      // 3. Petición autenticada para generar URL
+      const res = await fetch(API_GENERAR_URL + "?archivo=" + encodeURIComponent(archivoSeleccionado.name), {
+          headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      const datos = await res.json();
+      if (!res.ok) throw new Error(datos.error || datos.message || "Error API");
+
+      setStatus("Depositando archivo…", "pending");
+      const formData = new FormData();
+      Object.entries(datos.fields).forEach(([k, v]) => formData.append(k, v));
+      formData.append("file", archivoSeleccionado);
+
+      const subida = await fetch(datos.url, { method: "POST", body: formData });
+      if (!subida.ok) throw new Error("S3 rechazó el archivo");
+
+      setStatus("✓ Depositado exitosamente", "ok");
+      slotText.textContent = "Arrastra un archivo aquí, o haz clic para elegirlo"; slotFile.textContent = ""; archivoSeleccionado = null; input.value = ""; btnSubir.disabled = true;
+      cargarListado();
+    }catch(err){ setStatus("✕ " + err.message, "err"); btnSubir.disabled = false; }
+  }
+  btnSubir.addEventListener("click", subir);
+
+  async function cargarListado(){
+    const token = localStorage.getItem('jwt_token');
+    if (!token) {
+        listadoEl.innerHTML = '<p class="empty">Inicia sesión arriba para ver tu registro de archivos.</p>';
+        return;
+    }
+
+    listadoEl.innerHTML = '<p class="loading">Cargando registro seguro…</p>';
+    try{
+      // 4. Petición autenticada para listar archivos
+      const res = await fetch(API_LISTAR_URL, {
+          headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (!res.ok) throw new Error("Acceso no autorizado (HTTP " + res.status + ")");
+      const datos = await res.json();
+      const archivos = datos.archivos || [];
+      
+      connStamp.textContent = "CONECTADO A S3"; connStamp.classList.remove("offline");
+      
+      if (!archivos.length) return listadoEl.innerHTML = '<p class="empty">La bóveda está vacía.</p>';
+      listadoEl.innerHTML = archivos.map(a => `
+        <div class="row">
+          <span class="name">${a.nombre}</span><span class="dots"></span><span class="meta">${formatBytes(a.tamano)} · ${formatDate(a.fecha)}</span>
+          ${a.url ? `<a class="dl" href="${a.url}" target="_blank">Ver</a>` : ""}
+        </div>
+      `).join("");
+    }catch(err){
+      connStamp.textContent = "SIN CONEXIÓN / TOKEN EXPIRADO"; connStamp.classList.add("offline");
+      listadoEl.innerHTML = '<p class="empty">Error de seguridad: ' + err.message + '</p>';
+    }
+  }
+  btnRefrescar.addEventListener("click", cargarListado);
+  
+  // Solo intenta cargar la lista al inicio si ya hay un token guardado
+  if (localStorage.getItem('jwt_token')) cargarListado();
+</script>
+</body>
+</html>
