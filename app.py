@@ -6,7 +6,7 @@ import os # <--- NUEVO: Para leer variables de entorno
 from flask_wtf.csrf import CSRFProtect # <--- NUEVO: Para protección CSRF
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'una-clave-super-secreta-y-segura'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24).hex())
 csrf = CSRFProtect(app)
 dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
 
