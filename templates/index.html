@@ -103,7 +103,7 @@
   <p class="subtitle">CRUD completo. Cambia de tabla, agrega nuevos registros, edita los existentes o elimínalos en tiempo real.</p>
 
   <div class="ticket">
-    <select id="tablaSelector" class="table-selector">
+    <select id="tablaSelector" class="table-selector" aria-label="Seleccionar tabla de base de datos">
       <option value="productos">Tabla: Productos</option>
       <option value="clientes">Tabla: Clientes</option>
       <option value="ventas">Tabla: Ventas</option>
@@ -133,8 +133,8 @@
       </div>
 
       <div class="filter-bar">
-        <select id="filtroColumna" class="filter-select"></select>
-        <input type="text" id="filtroValor" class="filter-input" placeholder="Escribe para filtrar resultados...">
+        <select id="filtroColumna" class="filter-select" aria-label="Columna a filtrar"></select>
+        <input type="text" id="filtroValor" class="filter-input" placeholder="Escribe para filtrar resultados..." aria-label="Valor de búsqueda para filtro">
       </div>
 
       <div id="listado">
@@ -255,7 +255,7 @@
     let numerosObtenidos = datosCacheados.map(item => {
       const valorStr = item[pk_name] || '';
       const soloNumeros = valorStr.replace(/\D/g, ''); // Remueve letras y guiones
-      return parseInt(soloNumeros, 10) || 0;
+      return Number.parseInt(soloNumeros, 10) || 0;
     });
 
     numerosObtenidos.sort((a, b) => a - b);
@@ -276,7 +276,7 @@
     contCampos.innerHTML = esquema.map(campo => `
       <input type="${campo.type}" id="${campo.id}" 
              class="slot-input ${campo.full ? 'full-width' : ''}" 
-             placeholder="${campo.label}" ${campo.pk ? 'disabled' : 'required'}>
+             placeholder="${campo.label}" aria-label="${campo.label}" ${campo.pk ? 'disabled' : 'required'}>
     `).join('');
     // Al inicio el formulario queda en blanco hasta que descargue los datos y calcule el ID
   }

@@ -2,8 +2,12 @@ from flask import Flask, request, jsonify, render_template
 import boto3
 from decimal import Decimal
 import json
+import os # <--- NUEVO: Para leer variables de entorno
+from flask_wtf.csrf import CSRFProtect # <--- NUEVO: Para protección CSRF
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'una-clave-super-secreta-y-segura'
+csrf = CSRFProtect(app)
 dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
 
 # --- RUTAS DE LA INTERFAZ WEB ---
@@ -54,4 +58,6 @@ def eliminar_dato(tabla, pk_name, pk_value):
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=80)
+    # <--- NUEVO: Leer host desde variable de entorno para evitar el Blocker
+    host = os.environ.get('FLASK_HOST', '127.0.0.1')
+    app.run(host=host, port=80)
